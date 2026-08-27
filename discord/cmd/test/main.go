@@ -58,6 +58,7 @@ type MockRepository struct {
 	NotifiedStatus map[string]bool
 	SolvedProblems map[string]bool
 	UniqueACTimes  map[string][]int64
+	CurrentStreak  map[string]int // 追加
 }
 
 func NewMockRepository() *MockRepository {
@@ -65,6 +66,7 @@ func NewMockRepository() *MockRepository {
 		NotifiedStatus: make(map[string]bool),
 		SolvedProblems: make(map[string]bool),
 		UniqueACTimes:  make(map[string][]int64),
+		CurrentStreak:  make(map[string]int), // 追加
 	}
 }
 
@@ -94,6 +96,14 @@ func (m *MockRepository) HasUniqueACSince(user string, sinceEpoch int64) (bool, 
 		}
 	}
 	return false, nil
+}
+
+// 追加: Repository インターフェースを満たすためのメソッド
+func (m *MockRepository) GetCurrentStreak(user string, now time.Time, jst *time.Location) (int, error) {
+	if val, ok := m.CurrentStreak[user]; ok {
+		return val, nil
+	}
+	return 0, nil
 }
 
 type MockTimeProvider struct {

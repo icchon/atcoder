@@ -8,13 +8,13 @@ import (
 )
 
 type WatchdogService struct {
-	cfg        Config
-	client     AtCoderClient
-	repo       Repository
-	notifier   Notifier
-	timeProv   TimeProvider
-	jst        *time.Location
-	mu         sync.Mutex
+	cfg      Config
+	client   AtCoderClient
+	repo     Repository
+	notifier Notifier
+	timeProv TimeProvider
+	jst      *time.Location
+	mu       sync.Mutex
 }
 
 func NewWatchdogService(
@@ -85,7 +85,7 @@ func (s *WatchdogService) PollUniqueAC() {
 		}
 
 		if len(newSolved) > 0 {
-			streak, _ := s.client.FetchStreakCount(user)
+			streak, _ := s.repo.GetCurrentStreak(user, s.timeProv.Now(), s.jst)
 			msg := fmt.Sprintf(" **`%s` が本日の Unique AC を達成しました！**\n"+
 				"解いた問題: `%v`\n"+
 				"現在の記録: **%d** 日連続 \n"+
@@ -112,7 +112,7 @@ func (s *WatchdogService) HandleScheduledNotification(n NotificationSetting) {
 			continue
 		}
 
-		streak, _ := s.client.FetchStreakCount(user)
+		streak, _ := s.repo.GetCurrentStreak(user, s.timeProv.Now(), s.jst)
 		var msg string
 
 		switch n.Type {
@@ -123,11 +123,55 @@ func (s *WatchdogService) HandleScheduledNotification(n NotificationSetting) {
 				"今すぐ提出してください！  https://kenkoooo.com/atcoder/#/table/%s",
 				user, int(remaining.Minutes()), streak, user)
 		default: // reminder
-			msg = fmt.Sprintf("**【%s リマインド】`%s` は今日まだ Unique AC がありません！**\n"+
+			msg = fmt.Sprintf(" **【%s リマインド】`%s` は今日まだ Unique AC がありません！**\n"+
 				"現在の Streak: **%d** 日\n"+
 				"日付変更まで残り: **約 %d 時間 %d 分**\n"+
-				"Streak を維持するために 1 問解きましょう！ https://kenkoooo.com/atcoder/#/table/%s",
+				"Streak を維持するために 1 問解きましょう！  https://kenkoooo.com/atcoder/#/table/%s",
 				n.Time, user, streak, int(remaining.Hours()), int(remaining.Minutes())%60, user)
+		}
+
+		_ = s.notifier.SendMessage(msg)
+	}
+}
+
+// 現在のステータス（達成 / 未達成）を判定して即時通知
+func (s *WatchdogService) CheckAndReportCurrentStatus() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	dateStr, startOfDayEpoch := s.getTodayJST()
+	now := s.timeProv.Now().In(s.jst)
+	endOfDay := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, s.jst)
+	remaining := endOfDay.Sub(now).Round(time.Minute)
+
+	for _, user := range s.cfg.Users {
+		// 未登録 AC があれば同期
+		subs, err := s.client.FetchSubmissions(user, startOfDayEpoch)
+		if err == nil {
+			for _, sub := range subs {
+				if sub.Result == "AC" {
+					solved, _ := s.repo.IsProblemSolved(user, sub.ProblemID)
+					if !solved {
+						_ = s.repo.SaveUniqueAC(user, sub.ProblemID, sub.EpochSecond)
+					}
+				}
+			}
+		}
+
+		isSolved := s.isTodaySolved(user, dateStr, startOfDayEpoch)
+		streak, _ := s.repo.GetCurrentStreak(user, s.timeProv.Now(), s.jst)
+
+		var msg string
+		if isSolved {
+			msg = fmt.Sprintf(" **`%s` は本日の Unique AC を達成済みです！**\n"+
+				"現在の Streak: **%d** 日連続 \n"+
+				"本日のノルマは完了しています。", user, streak)
+		} else {
+			msg = fmt.Sprintf(" **`%s` は今日まだ Unique AC がありません！**\n"+
+				"現在の Streak: **%d** 日\n"+
+				"日付変更まで残り: **約 %d 時間 %d 分**\n"+
+				"Streak を維持するために 1 問解きましょう！  https://kenkoooo.com/atcoder/#/table/%s",
+				user, streak, int(remaining.Hours()), int(remaining.Minutes())%60, user)
 		}
 
 		_ = s.notifier.SendMessage(msg)

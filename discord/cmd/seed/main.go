@@ -24,10 +24,6 @@ type Submission struct {
 	Result      string `json:"result"`
 }
 
-type StreakRankResponse struct {
-	Count int `json:"count"`
-}
-
 var jst *time.Location
 
 func init() {
@@ -39,7 +35,6 @@ func init() {
 }
 
 func main() {
-	// 設定読み込み
 	configFile, err := os.ReadFile("config.json")
 	if err != nil {
 		log.Fatalf("Failed to read config.json: %v", err)
@@ -49,14 +44,12 @@ func main() {
 		log.Fatalf("Failed to parse config.json: %v", err)
 	}
 
-	// SQLite 初期化
 	db, err := sql.Open("sqlite3", "streaks.db")
 	if err != nil {
 		log.Fatalf("Failed to open DB: %v", err)
 	}
 	defer db.Close()
 
-	// テーブル初期化 (users, unique_ac)
 	createTableQuery := `
 	CREATE TABLE IF NOT EXISTS users (
 		atcoder_id TEXT PRIMARY KEY,
@@ -82,22 +75,24 @@ func main() {
 			continue
 		}
 
-		// users テーブルへ初期レコードを登録 / 更新
-		streak, err := fetchStreak(client, user)
+		currentStreak, err := calculateCurrentStreak(db, user, time.Now())
 		if err != nil {
-			log.Printf("Warning: failed to fetch streak for %s: %v", user, err)
+			log.Printf("Error calculating current streak for %s: %v", user, err)
+			currentStreak = 0
 		}
-		nowStr := time.Now().In(jst).Format(time.RFC3339)
 
+		nowStr := time.Now().In(jst).Format(time.RFC3339)
 		userUpsertQuery := `
 		INSERT INTO users (atcoder_id, last_streak, last_checked_at)
 		VALUES (?, ?, ?)
 		ON CONFLICT(atcoder_id) DO UPDATE SET
 			last_streak = excluded.last_streak,
 			last_checked_at = excluded.last_checked_at;`
-		if _, err := db.Exec(userUpsertQuery, user, streak, nowStr); err != nil {
+		if _, err := db.Exec(userUpsertQuery, user, currentStreak, nowStr); err != nil {
 			log.Printf("Error updating users table for %s: %v", user, err)
 		}
+
+		log.Printf("User: %s | Current Streak: %d days", user, currentStreak)
 	}
 
 	log.Println("Seeding completed successfully.")
@@ -106,7 +101,6 @@ func main() {
 func seedUserUniqueAC(db *sql.DB, client *http.Client, user string) error {
 	fromSecond := int64(0)
 	totalFetched := 0
-	uniqueCount := 0
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -160,12 +154,7 @@ func seedUserUniqueAC(db *sql.DB, client *http.Client, user string) error {
 				lastEpoch = sub.EpochSecond
 			}
 			if sub.Result == "AC" {
-				res, err := stmt.Exec(user, sub.ProblemID, sub.EpochSecond)
-				if err == nil {
-					if rows, _ := res.RowsAffected(); rows > 0 {
-						uniqueCount++
-					}
-				}
+				_, _ = stmt.Exec(user, sub.ProblemID, sub.EpochSecond)
 			}
 		}
 
@@ -178,37 +167,50 @@ func seedUserUniqueAC(db *sql.DB, client *http.Client, user string) error {
 		time.Sleep(1 * time.Second)
 	}
 
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-
-	var totalUnique int
-	_ = db.QueryRow("SELECT COUNT(*) FROM unique_ac WHERE atcoder_id = ?", user).Scan(&totalUnique)
-
-	log.Printf("User: %s | Fetched Submissions: %d | Total Unique AC: %d", user, totalFetched, totalUnique)
-	return nil
+	return tx.Commit()
 }
 
-func fetchStreak(client *http.Client, user string) (int, error) {
-	url := fmt.Sprintf("https://kenkoooo.com/atcoder/atcoder-api/v3/user/streak_rank?user=%s", user)
-	resp, err := client.Get(url)
+func calculateCurrentStreak(db *sql.DB, user string, now time.Time) (int, error) {
+	rows, err := db.Query(`
+		SELECT DISTINCT date(first_ac_epoch, 'unixepoch', '+9 hours') AS jst_date
+		FROM unique_ac
+		WHERE atcoder_id = ?
+	`, user)
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
+	defer rows.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("bad status code: %d", resp.StatusCode)
+	solvedDates := make(map[string]bool)
+	for rows.Next() {
+		var d string
+		if err := rows.Scan(&d); err == nil {
+			solvedDates[d] = true
+		}
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 0, err
+	today := now.In(jst)
+	todayStr := today.Format("2006-01-02")
+	yesterdayStr := today.AddDate(0, 0, -1).Format("2006-01-02")
+
+	var currentCursor time.Time
+	if solvedDates[todayStr] {
+		currentCursor = today
+	} else if solvedDates[yesterdayStr] {
+		currentCursor = today.AddDate(0, 0, -1)
+	} else {
+		return 0, nil
 	}
 
-	var data StreakRankResponse
-	if err := json.Unmarshal(body, &data); err != nil {
-		return 0, err
+	streak := 0
+	for {
+		dateStr := currentCursor.Format("2006-01-02")
+		if !solvedDates[dateStr] {
+			break
+		}
+		streak++
+		currentCursor = currentCursor.AddDate(0, 0, -1)
 	}
-	return data.Count, nil
+
+	return streak, nil
 }

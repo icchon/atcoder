@@ -23,7 +23,6 @@ type Config struct {
 
 type AtCoderClient interface {
 	FetchSubmissions(user string, fromSecond int64) ([]Submission, error)
-	FetchStreakCount(user string) (int, error)
 }
 
 type Repository interface {
@@ -32,6 +31,7 @@ type Repository interface {
 	IsProblemSolved(user, problemID string) (bool, error)
 	SaveUniqueAC(user, problemID string, epochSecond int64) error
 	HasUniqueACSince(user string, sinceEpoch int64) (bool, error)
+	GetCurrentStreak(user string, now time.Time, jst *time.Location) (int, error)
 }
 
 type Notifier interface {

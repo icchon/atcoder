@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/icchon/atcoder/discord/service"
 	"bytes"
 	"context"
 	"database/sql"
@@ -16,6 +15,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/icchon/atcoder/discord/service"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/robfig/cron/v3"
@@ -49,32 +50,6 @@ func (c *RealAtCoderClient) FetchSubmissions(user string, fromSecond int64) ([]s
 		return nil, err
 	}
 	return subs, nil
-}
-
-func (c *RealAtCoderClient) FetchStreakCount(user string) (int, error) {
-	url := fmt.Sprintf("https://kenkoooo.com/atcoder/atcoder-api/v3/user/streak_rank?user=%s", user)
-	resp, err := c.client.Get(url)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("bad status code: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 0, err
-	}
-
-	var data struct {
-		Count int `json:"count"`
-	}
-	if err := json.Unmarshal(body, &data); err != nil {
-		return 0, err
-	}
-	return data.Count, nil
 }
 
 type SQLiteRepository struct {
@@ -114,6 +89,52 @@ func (r *SQLiteRepository) HasUniqueACSince(user string, sinceEpoch int64) (bool
 	var count int
 	err := r.db.QueryRow("SELECT COUNT(*) FROM unique_ac WHERE atcoder_id = ? AND first_ac_epoch >= ?", user, sinceEpoch).Scan(&count)
 	return count > 0, err
+}
+
+// unique_ac テーブルから JST 基準の Current Streak を算出
+func (r *SQLiteRepository) GetCurrentStreak(user string, now time.Time, jst *time.Location) (int, error) {
+	rows, err := r.db.Query(`
+		SELECT DISTINCT date(first_ac_epoch, 'unixepoch', '+9 hours') AS jst_date
+		FROM unique_ac
+		WHERE atcoder_id = ?
+	`, user)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	solvedDates := make(map[string]bool)
+	for rows.Next() {
+		var d string
+		if err := rows.Scan(&d); err == nil {
+			solvedDates[d] = true
+		}
+	}
+
+	today := now.In(jst)
+	todayStr := today.Format("2006-01-02")
+	yesterdayStr := today.AddDate(0, 0, -1).Format("2006-01-02")
+
+	var currentCursor time.Time
+	if solvedDates[todayStr] {
+		currentCursor = today
+	} else if solvedDates[yesterdayStr] {
+		currentCursor = today.AddDate(0, 0, -1)
+	} else {
+		return 0, nil
+	}
+
+	streak := 0
+	for {
+		dateStr := currentCursor.Format("2006-01-02")
+		if !solvedDates[dateStr] {
+			break
+		}
+		streak++
+		currentCursor = currentCursor.AddDate(0, 0, -1)
+	}
+
+	return streak, nil
 }
 
 type DiscordNotifier struct {
@@ -169,6 +190,11 @@ func main() {
 	defer db.Close()
 
 	initTableQuery := `
+	CREATE TABLE IF NOT EXISTS users (
+		atcoder_id TEXT PRIMARY KEY,
+		last_streak INTEGER DEFAULT 0,
+		last_checked_at TEXT
+	);
 	CREATE TABLE IF NOT EXISTS unique_ac (
 		atcoder_id TEXT,
 		problem_id TEXT,
@@ -196,7 +222,6 @@ func main() {
 	notifier := &DiscordNotifier{webhookURL: cfg.WebhookURL, client: httpClient}
 	timeProv := RealTimeProvider{}
 
-	// DI: WatchdogService の生成
 	svc := service.NewWatchdogService(cfg, client, repo, notifier, timeProv, jst)
 
 	c := cron.New(cron.WithLocation(jst))
@@ -221,17 +246,17 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	// テスト用エンドポイント
+	// テスト用エンドポイント（現在のステータスを即座に Discord へ送信）
 	mux := http.NewServeMux()
 	mux.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		go svc.PollUniqueAC()
+		go svc.CheckAndReportCurrentStatus()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"polling triggered"}`))
+		_, _ = w.Write([]byte(`{"status":"status report triggered"}`))
 	})
 
 	server := &http.Server{Addr: ":8080", Handler: mux}

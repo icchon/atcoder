@@ -7,25 +7,19 @@ import (
 	"time"
 )
 
-// --- Mock 定義 ---
-
 type MockAtCoderClient struct {
 	Submissions map[string][]service.Submission
-	Streak      map[string]int
 }
 
 func (m *MockAtCoderClient) FetchSubmissions(user string, fromSecond int64) ([]service.Submission, error) {
 	return m.Submissions[user], nil
 }
 
-func (m *MockAtCoderClient) FetchStreakCount(user string) (int, error) {
-	return m.Streak[user], nil
-}
-
 type MockRepository struct {
-	NotifiedStatus map[string]bool     // "user_date" -> bool
-	SolvedProblems map[string]bool     // "user_problem" -> bool
-	UniqueACTimes  map[string][]int64  // user -> []epoch
+	NotifiedStatus map[string]bool
+	SolvedProblems map[string]bool
+	UniqueACTimes  map[string][]int64
+	CurrentStreak  map[string]int
 }
 
 func NewMockRepository() *MockRepository {
@@ -33,6 +27,7 @@ func NewMockRepository() *MockRepository {
 		NotifiedStatus: make(map[string]bool),
 		SolvedProblems: make(map[string]bool),
 		UniqueACTimes:  make(map[string][]int64),
+		CurrentStreak:  make(map[string]int),
 	}
 }
 
@@ -64,6 +59,10 @@ func (m *MockRepository) HasUniqueACSince(user string, sinceEpoch int64) (bool, 
 	return false, nil
 }
 
+func (m *MockRepository) GetCurrentStreak(user string, now time.Time, jst *time.Location) (int, error) {
+	return m.CurrentStreak[user], nil
+}
+
 type MockNotifier struct {
 	SentMessages []string
 }
@@ -81,8 +80,6 @@ func (m *MockTimeProvider) Now() time.Time {
 	return m.CurrentTime
 }
 
-// --- テスト本体 ---
-
 func TestPollUniqueAC_NewACDetected(t *testing.T) {
 	jst := time.FixedZone("JST", 9*60*60)
 	fixedNow := time.Date(2026, 8, 27, 14, 0, 0, 0, jst)
@@ -97,16 +94,16 @@ func TestPollUniqueAC_NewACDetected(t *testing.T) {
 				{ID: 1, EpochSecond: fixedNow.Unix() - 100, ProblemID: "abc300_a", Result: "AC"},
 			},
 		},
-		Streak: map[string]int{"kenkoooo": 42},
 	}
 
 	repo := NewMockRepository()
+	repo.CurrentStreak["kenkoooo"] = 42
+
 	notifier := &MockNotifier{}
 	timeProv := &MockTimeProvider{CurrentTime: fixedNow}
 
 	svc := service.NewWatchdogService(cfg, client, repo, notifier, timeProv, jst)
 
-	// 1回目のポーリング: 新規 Unique AC を検知して通知される
 	svc.PollUniqueAC()
 
 	if len(notifier.SentMessages) != 1 {
@@ -116,10 +113,10 @@ func TestPollUniqueAC_NewACDetected(t *testing.T) {
 		t.Errorf("expected message to contain problem id, got: %s", notifier.SentMessages[0])
 	}
 
-	// 2回目のポーリング: 同日中に再度呼ばれても重複通知されない
+	// 2回目のポーリング: 重複通知されない
 	svc.PollUniqueAC()
 	if len(notifier.SentMessages) != 1 {
-		t.Fatalf("expected still 1 message (no duplicate), got %d", len(notifier.SentMessages))
+		t.Fatalf("expected still 1 message, got %d", len(notifier.SentMessages))
 	}
 }
 
@@ -133,16 +130,16 @@ func TestHandleScheduledNotification_ReminderAndFinalWarning(t *testing.T) {
 
 	client := &MockAtCoderClient{
 		Submissions: map[string][]service.Submission{"chokudai": {}},
-		Streak:      map[string]int{"chokudai": 100},
 	}
 
 	repo := NewMockRepository()
+	repo.CurrentStreak["chokudai"] = 100
+
 	notifier := &MockNotifier{}
 	timeProv := &MockTimeProvider{CurrentTime: fixedNow}
 
 	svc := service.NewWatchdogService(cfg, client, repo, notifier, timeProv, jst)
 
-	// リマインド通知のテスト (未達成時)
 	svc.HandleScheduledNotification(service.NotificationSetting{Time: "22:00", Type: "reminder"})
 
 	if len(notifier.SentMessages) != 1 {
@@ -152,11 +149,10 @@ func TestHandleScheduledNotification_ReminderAndFinalWarning(t *testing.T) {
 		t.Errorf("expected reminder format, got: %s", notifier.SentMessages[0])
 	}
 
-	// 達成フラグを立てた後 -> 最終通告がスキップされることを確認
 	_ = repo.SetSuccessNotified("chokudai", "2026-08-27")
 	svc.HandleScheduledNotification(service.NotificationSetting{Time: "23:30", Type: "final_warning"})
 
 	if len(notifier.SentMessages) != 1 {
-		t.Fatalf("expected final warning to be skipped, message count: %d", len(notifier.SentMessages))
+		t.Fatalf("expected final warning to be skipped, got: %d", len(notifier.SentMessages))
 	}
 }

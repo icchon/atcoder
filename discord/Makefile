@@ -5,6 +5,10 @@ all: depend seed test ${NAME}
 depend: 
 	go mod tidy
 
+run:
+	go build -o ${NAME} ./cmd/server/main.go
+	./${NAME}
+	
 seed:
 	go run ./cmd/seed/main.go
 
