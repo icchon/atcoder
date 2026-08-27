@@ -24,6 +24,20 @@ type Submission struct {
 	Result      string `json:"result"`
 }
 
+type StreakRankResponse struct {
+	Count int `json:"count"`
+}
+
+var jst *time.Location
+
+func init() {
+	var err error
+	jst, err = time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		jst = time.FixedZone("JST", 9*60*60)
+	}
+}
+
 func main() {
 	// 設定読み込み
 	configFile, err := os.ReadFile("config.json")
@@ -42,7 +56,13 @@ func main() {
 	}
 	defer db.Close()
 
+	// テーブル初期化 (users, unique_ac)
 	createTableQuery := `
+	CREATE TABLE IF NOT EXISTS users (
+		atcoder_id TEXT PRIMARY KEY,
+		last_streak INTEGER DEFAULT 0,
+		last_checked_at TEXT
+	);
 	CREATE TABLE IF NOT EXISTS unique_ac (
 		atcoder_id TEXT,
 		problem_id TEXT,
@@ -50,26 +70,44 @@ func main() {
 		PRIMARY KEY (atcoder_id, problem_id)
 	);`
 	if _, err := db.Exec(createTableQuery); err != nil {
-		log.Fatalf("Failed to create table: %v", err)
+		log.Fatalf("Failed to create tables: %v", err)
 	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
 
 	for _, user := range config.Users {
 		log.Printf("Seeding Unique AC for user: %s ...", user)
-		if err := seedUserUniqueAC(db, user); err != nil {
+		if err := seedUserUniqueAC(db, client, user); err != nil {
 			log.Printf("Error seeding %s: %v", user, err)
+			continue
+		}
+
+		// users テーブルへ初期レコードを登録 / 更新
+		streak, err := fetchStreak(client, user)
+		if err != nil {
+			log.Printf("Warning: failed to fetch streak for %s: %v", user, err)
+		}
+		nowStr := time.Now().In(jst).Format(time.RFC3339)
+
+		userUpsertQuery := `
+		INSERT INTO users (atcoder_id, last_streak, last_checked_at)
+		VALUES (?, ?, ?)
+		ON CONFLICT(atcoder_id) DO UPDATE SET
+			last_streak = excluded.last_streak,
+			last_checked_at = excluded.last_checked_at;`
+		if _, err := db.Exec(userUpsertQuery, user, streak, nowStr); err != nil {
+			log.Printf("Error updating users table for %s: %v", user, err)
 		}
 	}
 
 	log.Println("Seeding completed successfully.")
 }
 
-func seedUserUniqueAC(db *sql.DB, user string) error {
-	client := http.Client{Timeout: 15 * time.Second}
+func seedUserUniqueAC(db *sql.DB, client *http.Client, user string) error {
 	fromSecond := int64(0)
 	totalFetched := 0
 	uniqueCount := 0
 
-	// トランザクション開始
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -131,15 +169,12 @@ func seedUserUniqueAC(db *sql.DB, user string) error {
 			}
 		}
 
-		// 次のページネーションの開始秒
 		fromSecond = lastEpoch + 1
 
-		// 取得件数が 500 件未満なら全件取得完了
 		if len(subs) < 500 {
 			break
 		}
 
-		// API Rate limit への配慮
 		time.Sleep(1 * time.Second)
 	}
 
@@ -147,10 +182,33 @@ func seedUserUniqueAC(db *sql.DB, user string) error {
 		return err
 	}
 
-	// 登録済みの Unique AC 数をカウント
 	var totalUnique int
 	_ = db.QueryRow("SELECT COUNT(*) FROM unique_ac WHERE atcoder_id = ?", user).Scan(&totalUnique)
 
 	log.Printf("User: %s | Fetched Submissions: %d | Total Unique AC: %d", user, totalFetched, totalUnique)
 	return nil
+}
+
+func fetchStreak(client *http.Client, user string) (int, error) {
+	url := fmt.Sprintf("https://kenkoooo.com/atcoder/atcoder-api/v3/user/streak_rank?user=%s", user)
+	resp, err := client.Get(url)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("bad status code: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+
+	var data StreakRankResponse
+	if err := json.Unmarshal(body, &data); err != nil {
+		return 0, err
+	}
+	return data.Count, nil
 }
