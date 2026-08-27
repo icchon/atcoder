@@ -1,0 +1,22 @@
+{
+  "webhook_url": "DISCORD_WEBHOOK_URL",
+  "users": [
+    "icchon",
+    "icchon2"
+  ],
+  "poll_interval_minutes": 5,
+  "notifications": [
+    {
+      "time": "10:00",
+      "type": "reminder"
+    },
+    {
+      "time": "22:00",
+      "type": "reminder"
+    },
+    {
+      "time": "23:30",
+      "type": "final_warning"
+    }
+  ]
+}
