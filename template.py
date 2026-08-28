@@ -156,14 +156,47 @@ def is_unditected_graph_closed(N_vertex, edges):
         if uni.same(v1, v2): return True
         uni.union(v1, v2)
     return False
-#util
-def print2d(arrs):
-    print("-"*len(F.hd(arrs))*2)
-    for arr in arrs: print(*arr)
-    print("-"*len(F.hd(arrs))*2)
-def ALPHAS(small=True): return "".join([chr(i + ord("a")*small + ord("A")*(not small)) for i in range(26)])
+
+class Grid:
+    @staticmethod
+    def transpose(grid):
+        h,w = len(grid), len(F.hd(grid))
+        assert h == w
+        res = GRID_HW(h, w, None)
+        for i in range(h):
+            for j in range(w): res[i][j] = grid[j][i]
+        return res
+    @staticmethod
+    def rotate90(grid):
+        h, w = len(grid), len(F.hd(grid))
+        res = GRID_HW(w, h, None)
+        for i in range(w):
+            for j in range(h): res[i][j] = grid[j][w - i - 1]
+        return res
+    @staticmethod
+    def symmetric_y(grid):
+        h,w = len(grid), len(F.hd(grid))
+        res = GRID_HW(h, w, None)
+        for i in range(h):
+            for j in range(w): res[i][j] = grid[i][w - j - 1]
+        return res
+    @staticmethod
+    def symmetric_x(grid):
+        h,w = len(grid), len(F.hd(grid))
+        res = GRID_HW(h, w, None)
+        for i in range(h):
+            for j in range(w): res[i][j] = grid[h - i - 1][j]
+        return res
+    @staticmethod
+    def print(arrs):
+        print("-"*len(F.hd(arrs))*2)
+        for arr in arrs: print(*arr)
+        print("-"*len(F.hd(arrs))*2)
+
 def GRID_HW(h, w, v):return [[v]*w for _ in range(h)]
 def N_EMPTY(n): return [[] for _ in range(n)]
+#util
+def ALPHAS(small=True): return "".join([chr(i + ord("a")*small + ord("A")*(not small)) for i in range(26)])
 def SIGN(x): return 1 if x >= 0 else -1
 # 標準入力
 def GET_N(): return int(input().rstrip())
@@ -189,6 +222,7 @@ def GET_ARR_TUP(length, idx=False):
 
 def main():
     N,M = GET_ARR()
+    GRID = GRID_HW(N,M, 0)
 
 
 
