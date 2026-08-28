@@ -159,34 +159,24 @@ def is_unditected_graph_closed(N_vertex, edges):
 
 class Grid:
     @staticmethod
+    def transform(grid, h, w, f):
+        res = GRID_HW(h, w, None)
+        for i in range(h):
+            for j in range(w):
+                (ni, nj) = f(i, j)
+                res[i][j] = grid[ni][nj]
+        return res
+    @staticmethod
     def transpose(grid):
         h,w = len(grid), len(F.hd(grid))
         assert h == w
-        res = GRID_HW(h, w, None)
-        for i in range(h):
-            for j in range(w): res[i][j] = grid[j][i]
-        return res
+        return Grid.transform(grid, h, w, lambda i,j:(j,i))
     @staticmethod
-    def rotate90(grid):
-        h, w = len(grid), len(F.hd(grid))
-        res = GRID_HW(w, h, None)
-        for i in range(w):
-            for j in range(h): res[i][j] = grid[j][w - i - 1]
-        return res
+    def rotate90(grid): return Grid.transform(grid, len(F.hd(grid)), len(grid), lambda i,j:(j, len(F.hd(grid)) - i - 1))
     @staticmethod
-    def symmetric_y(grid):
-        h,w = len(grid), len(F.hd(grid))
-        res = GRID_HW(h, w, None)
-        for i in range(h):
-            for j in range(w): res[i][j] = grid[i][w - j - 1]
-        return res
+    def symmetric_y(grid): return Grid.transform(grid, len(grid), len(F.hd(grid)), lambda i,j:(i, len(F.hd(grid)) - j - 1))
     @staticmethod
-    def symmetric_x(grid):
-        h,w = len(grid), len(F.hd(grid))
-        res = GRID_HW(h, w, None)
-        for i in range(h):
-            for j in range(w): res[i][j] = grid[h - i - 1][j]
-        return res
+    def symmetric_x(grid): return Grid.transform(grid, len(grid), len(F.hd(grid)), lambda i,j:(len(grid) - i - 1, j))
     @staticmethod
     def print(arrs):
         print("-"*len(F.hd(arrs))*2)
@@ -222,9 +212,7 @@ def GET_ARR_TUP(length, idx=False):
 
 def main():
     N,M = GET_ARR()
-    GRID = GRID_HW(N,M, 0)
-
-
+    
 
 if __name__ == "__main__":
     main()
