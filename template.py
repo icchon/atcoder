@@ -1,7 +1,7 @@
 # import math
-from collections import defaultdict
+# from collections import defaultdict
 import sys
-import copy 
+# import copy 
 # import itertools
 # import heapq
 # from collections import Counter
@@ -11,7 +11,7 @@ import copy
 # import sympy
 # import numpy as np
 
-sys.setrecursionlimit(100000000)
+# sys.setrecursionlimit(100000000)
 # "a" + "b" <=> "".join(["a", "b"])　再帰　はCPython
 input = sys.stdin.readline
 
@@ -23,7 +23,7 @@ class F:
     @staticmethod
     def tail(xs): return None if F.empty(xs) else xs[-1]
     @staticmethod
-    def hd_tails(xs):
+    def headd_tails(xs):
         if len(xs) == 0: return ([],[])
         if len(xs) == 1: return (xs[0],[])
         else: return (xs[0],xs[1:])
@@ -205,14 +205,16 @@ def GET_ARR_TUP(length, idx=False):
         t = F.compose(tuple, F.map_curry(F.compose(F.dec, int) if idx else F.LAMBDA(int)))(input().split())
         res.append(F.hd(t) if len(t) <= 1 else t)
     return res
+def ARR_TO_S(xs, f=str): return " ".join(map(f, xs))
+def ARRS_TO_S(xss, f=str): return "\n".join(map(lambda xs: ARR_TO_S(xs, f), xss))
 
 #-------------------------------------------------------------------------------------------------
 # main
 
-
 def main():
-    N,M = GET_ARR()
+    N = GET_N()
     
+
 
 if __name__ == "__main__":
     main()
