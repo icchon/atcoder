@@ -1,17 +1,17 @@
 # import math
-# from collections import defaultdict
+from collections import defaultdict
 import sys
+from collections import Counter
+from collections import deque
 # import copy 
 # import itertools
 # import heapq
-# from collections import Counter
-# from collections import deque
 # import bisect
 # import random
 # import sympy
 # import numpy as np
 
-# sys.setrecursionlimit(100000000)
+sys.setrecursionlimit(100000000)
 # "a" + "b" <=> "".join(["a", "b"])　再帰　はCPython
 input = sys.stdin.readline
 
@@ -131,32 +131,34 @@ class Vec2:
     def normal(v): return (-F.snd(v), F.fst(v))
     @staticmethod
     def is_para(v1, v2): return (F.fst(v1)*F.snd(v2) == F.snd(v1)*F.fst(v2))
-#有向グラフの閉路
-def is_ditected_graph_closed(N_vertex, edges):
-    graph = [[] for _ in range(N_vertex)]
-    for (s, g) in edges: graph[s].append(g)
-    def dfs(v, seen, finished):
-        seen[v] = True
-        for v_next in graph[v]:
-            if finished[v_next]: continue
-            if seen[v_next]: return True
-            if dfs(v_next, seen, finished): return True
-        finished[v] = True
+class Graph:
+    #有向グラフの閉路
+    @staticmethod
+    def is_ditected_graph_closed(N_vertex, edges):
+        graph = [[] for _ in range(N_vertex)]
+        for (s, g) in edges: graph[s].append(g)
+        def dfs(v, seen, finished):
+            seen[v] = True
+            for v_next in graph[v]:
+                if finished[v_next]: continue
+                if seen[v_next]: return True
+                if dfs(v_next, seen, finished): return True
+            finished[v] = True
+            return False
+        N = len(graph)
+        seen = [False]*N
+        finished = [False]*N
+        for v in range(N): 
+            if dfs(v, seen, finished): return True
         return False
-    N = len(graph)
-    seen = [False]*N
-    finished = [False]*N
-    for v in range(N): 
-        if dfs(v, seen, finished): return True
-    return False
-#無向グラフの閉路 
-def is_unditected_graph_closed(N_vertex, edges):
-    uni = UnionFind(N_vertex)
-    for (v1, v2) in edges:
-        if uni.same(v1, v2): return True
-        uni.union(v1, v2)
-    return False
-
+    #無向グラフの閉路 
+    @staticmethod
+    def is_unditected_graph_closed(N_vertex, edges):
+        uni = UnionFind(N_vertex)
+        for (v1, v2) in edges:
+            if uni.same(v1, v2): return True
+            uni.union(v1, v2)
+        return False
 class Grid:
     @staticmethod
     def transform(grid, h, w, f):
