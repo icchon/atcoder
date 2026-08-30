@@ -108,10 +108,8 @@ class UnionFind():
     def __str__(self): return '\n'.join(f'{r}: {m}' for r, m in self.all_group_members().items())
 DX2_VERTICAL = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 DX2_DIAGONAL = [(1, 1), (-1, 1), (-1, -1), (1, -1)]
-DX2 = DX2_VERTICAL + DX2_DIAGONAL
 DX3_VERTICAL = [(1, 0, 0), (0, 1, 0), (-1, 0, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
 DX3_DIAGONAL = [(1, 1, 1), (-1, 1, 1), (-1, -1, 1), (1, -1, 1), (1, 1, -1), (-1, 1, -1), (-1, -1, -1), (1, -1, -1)]
-DX3 = DX3_VERTICAL + DX3_DIAGONAL
 class Vec2:
     @staticmethod 
     def add(v1, v2): return tuple(map(lambda x,y:x+y, v1, v2))
@@ -162,7 +160,7 @@ class Graph:
 class Grid:
     @staticmethod
     def transform(grid, h, w, f):
-        res = GRID_HW(h, w, None)
+        res = Grid.grid_hw(h, w, None)
         for i in range(h):
             for j in range(w):
                 (ni, nj) = f(i, j)
@@ -184,9 +182,16 @@ class Grid:
         print("-"*len(F.hd(arrs))*2)
         for arr in arrs: print(*arr)
         print("-"*len(F.hd(arrs))*2)
+    @staticmethod
+    def is_inner(hw, xy):
+        h,w = hw
+        x,y = xy
+        return (0 <= x < h) and (0 <= y < w)
+    @staticmethod
+    def grid_hw(h, w, v): return [[v]*w for _ in range(h)]
+    @staticmethod
+    def n_empty(n): return [[] for _ in range(n)]
 
-def GRID_HW(h, w, v):return [[v]*w for _ in range(h)]
-def N_EMPTY(n): return [[] for _ in range(n)]
 #util
 def ALPHAS(small=True): return "".join([chr(i + ord("a")*small + ord("A")*(not small)) for i in range(26)])
 def SIGN(x): return 1 if x >= 0 else -1
@@ -207,6 +212,7 @@ def GET_ARR_TUP(length, idx=False):
         t = F.compose(tuple, F.map_curry(F.compose(F.dec, int) if idx else F.LAMBDA(int)))(input().split())
         res.append(F.hd(t) if len(t) <= 1 else t)
     return res
+# to_string
 def ARR_TO_S(xs, f=str): return " ".join(map(f, xs))
 def ARRS_TO_S(xss, f=str): return "\n".join(map(lambda xs: ARR_TO_S(xs, f), xss))
 
