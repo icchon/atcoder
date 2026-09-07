@@ -4,7 +4,6 @@ import subprocess
 import requests
 from bs4 import BeautifulSoup
 
-# ANSI エスケープシーケンス定数
 GREEN = "\033[32m"
 RED = "\033[31m"
 YELLOW = "\033[33m"
@@ -12,13 +11,12 @@ BOLD = "\033[1m"
 RESET = "\033[0m"
 
 def fetch_samples(url):
-    """問題ページから入出力例のペアを抽出する"""
     headers = {
         "User-Agent": "Mozilla/5.0 (compatible; AtCoderTestRunner/1.0)"
     }
     res = requests.get(url, headers=headers)
     if res.status_code != 200:
-        print(f"[Error] ページの取得に失敗しました (Status: {res.status_code}, URL: {url})")
+        print(f"[Error] ページの取得に失敗 (Status: {res.status_code}, URL: {url})")
         sys.exit(1)
 
     soup = BeautifulSoup(res.text, "html.parser")
@@ -50,14 +48,14 @@ def fetch_samples(url):
     return samples
 
 def run_test(target_script, samples):
-    """各サンプルケースに対してスクリプトを実行して検証する"""
     if not os.path.exists(target_script):
-        print(f"[Error] 実行対象のスクリプト '{target_script}' が見つかりません。")
+        print(f"[Error] スクリプト '{target_script}' が見つかりません")
         sys.exit(1)
 
     all_passed = True
     for num, in_data, expected_out in samples:
         print(f"--- Sample {num} ---")
+        print(f"{in_data.rstrip()}")
         try:
             proc = subprocess.run(
                 [sys.executable, target_script],
@@ -67,25 +65,24 @@ def run_test(target_script, samples):
                 timeout=5
             )
         except subprocess.TimeoutExpired:
-            print(f"[Result] {YELLOW}{BOLD}TLE{RESET} (Time Limit Exceeded)")
+            print(f"{YELLOW}{BOLD}TLE{RESET} (Time Limit Exceeded)")
             all_passed = False
             continue
 
         if proc.returncode != 0:
-            print(f"[Result] {RED}{BOLD}RE{RESET} (Runtime Error) exit code: {proc.returncode}")
+            print(f"{RED}{BOLD}RE{RESET} (Runtime Error) exit code: {proc.returncode}")
             print(proc.stderr.strip())
             all_passed = False
             continue
 
         actual_out = proc.stdout.rstrip()
         expected = expected_out.rstrip()
-
+        print(f"正解のやつ:\n{expected}")
         if actual_out == expected:
             print(f"{GREEN}{BOLD}AC{RESET}")
         else:
+            print(f"自分のやつ:\n{actual_out}")
             print(f"{RED}{BOLD}WA{RESET}")
-            print(f"Expected:\n{expected}")
-            print(f"Actual:\n{actual_out}")
             all_passed = False
 
     print("\n" + ("=" * 20))
@@ -114,5 +111,5 @@ if __name__ == "__main__":
     if not samples:
         print("サンプルケースが見つかりませんでした。")
         sys.exit(1)
-    print(f"{len(samples)} 件のサンプルを検出。テスト開始:\n")
+    print(f"{len(samples)} 件のサンプルを検出\n")
     run_test(target_code, samples)
