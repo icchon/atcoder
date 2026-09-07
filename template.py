@@ -1,12 +1,15 @@
 # import math
 from collections import defaultdict
 import sys
-from collections import Counter
-from collections import deque
-# import copy 
+# from collections import Counter
+# from collections import deque
+import copy 
 # import itertools
 # import heapq
+import  sortedcontainers
 # import bisect
+from atcoder.segtree import SegTree
+# from atcoder.dsu import DSU
 # import random
 # import sympy
 # import numpy as np
@@ -14,6 +17,56 @@ from collections import deque
 sys.setrecursionlimit(100000000)
 # "a" + "b" <=> "".join(["a", "b"])　再帰　はCPython
 input = sys.stdin.readline
+
+class SqrtList:
+    BUCKET_SIZE = 1000
+    def __init__(self, xs=None):
+        xs = list([] if xs is None else xs)
+        self.buckets = [xs[i:i + self.BUCKET_SIZE] for i in range(0, len(xs), self.BUCKET_SIZE)] if len(xs) > 0 else [[]]
+    def insert(self, i, v):
+        cur = 0
+        for idx, b in enumerate(self.buckets):
+            if cur + len(b) >= i:
+                b.insert(i - cur, v)
+                if len(b) > 2 * self.BUCKET_SIZE:
+                    mid = len(b) // 2
+                    self.buckets.insert(idx + 1, b[mid:])
+                    del b[mid:]
+                return
+            cur += len(b)
+        self.buckets[-1].append(v)
+    def pop(self, i=-1):
+        if i < 0: i += len(self)
+        if not (0 <= i < len(self)): raise IndexError()
+        cur = 0
+        for idx, b in enumerate(self.buckets):
+            if cur + len(b) > i:
+                val = b.pop(i - cur)
+                if len(b) == 0 and len(self.buckets) > 1: del self.buckets[idx]
+                return val
+            cur += len(b)
+    def __iter__(self):
+        for b in self.buckets: 
+            for x in b: yield x
+    def __getitem__(self, i):
+        if i < 0: i += len(self)
+        cur = 0
+        for b in self.buckets:
+            if cur + len(b) > i: return b[i - cur]
+            cur += len(b)
+        raise IndexError()
+    def __delitem__(self, i): self.pop(i)
+    def __setitem__(self, i, v):
+        if i < 0: i += len(self)
+        cur = 0
+        for b in self.buckets:
+            if cur + len(b) > i:
+                b[i - cur] = v
+                return
+            cur += len(b)
+        raise IndexError()
+    def __len__(self): return sum(len(b) for b in self.buckets)
+    def __str__(self): return "".join(map(str, self.buckets))
 
 class F:
     @staticmethod
@@ -99,6 +152,10 @@ class UnionFind():
     def members(self, x):
         root = self.find(x)
         return [i for i in range(self.n) if self.find(i) == root]
+    def members_count(self):
+        lens = [0]*self.n
+        for x in range(self.n): lens[self.find(x)] += 1
+        return [lens[self.find(x)] for x in range(self.n)]
     def roots(self): return [i for i, x in enumerate(self.parents) if x < 0]
     def group_count(self): return len(self.roots())
     def all_group_members(self):
@@ -189,9 +246,17 @@ class Grid:
         return (0 <= x < h) and (0 <= y < w)
     @staticmethod
     def grid_hw(h, w, v): return [[v]*w for _ in range(h)]
-    @staticmethod
-    def n_empty(n): return [[] for _ in range(n)]
-
+class Util:
+    def run_length_encode(xs):
+        res = []
+        if len(xs) == 0: return res
+        pre,cnt = xs[0], 1
+        for x in xs[1:]:
+            if x != pre:
+                res.append((pre, cnt))
+                pre, cnt = x, 1
+            else: cnt += 1
+        return res + [(pre, cnt)]
 #util
 def ALPHAS(small=True): return "".join([chr(i + ord("a")*small + ord("A")*(not small)) for i in range(26)])
 def SIGN(x): return 1 if x >= 0 else -1
@@ -213,15 +278,25 @@ def GET_ARR_TUP(length, idx=False):
         res.append(F.hd(t) if len(t) <= 1 else t)
     return res
 # to_string
-def ARR_TO_S(xs, f=str): return " ".join(map(f, xs))
+def ARR_TO_S(xs, f=str, sep=" "): return sep.join(map(f, xs))
 def ARRS_TO_S(xss, f=str): return "\n".join(map(lambda xs: ARR_TO_S(xs, f), xss))
 
 #-------------------------------------------------------------------------------------------------
 # main
 
+
 def main():
     N = GET_N()
-    
+    P = GET_ARR()
+
+    print("Yes")
+
+
+
+
+
+        
+
 
 
 if __name__ == "__main__":
