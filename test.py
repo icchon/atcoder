@@ -10,9 +10,12 @@ YELLOW = "\033[33m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
 
+REVEL_SESSION = ""
+
 def fetch_samples(url):
     headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; AtCoderTestRunner/1.0)"
+        "User-Agent": "Mozilla/5.0 (compatible; AtCoderTestRunner/1.0)",
+        "Cookie": f"REVEL_SESSION={REVEL_SESSION}"
     }
     res = requests.get(url, headers=headers)
     if res.status_code != 200:
@@ -75,8 +78,8 @@ def run_test(target_script, samples):
             all_passed = False
             continue
 
-        actual_out = proc.stdout.rstrip()
-        expected = expected_out.rstrip()
+        actual_out = "\n".join(line.strip() for line in proc.stdout.strip().splitlines())
+        expected = "\n".join(line.strip() for line in expected_out.strip().splitlines())
         print(f"正解のやつ:\n{expected}")
         if actual_out == expected:
             print(f"{GREEN}{BOLD}AC{RESET}")
@@ -92,7 +95,7 @@ def run_test(target_script, samples):
         print(f"{RED}{BOLD}Some Samples Failed. (WA / RE / TLE){RESET}")
 
 
-CONTEST_ID = "abc474"
+CONTEST_ID = "abc446"
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

@@ -1,14 +1,15 @@
-# import math
+import math
 from collections import defaultdict
 import sys
 # from collections import Counter
-# from collections import deque
+from collections import deque
 import copy 
 # import itertools
-# import heapq
+import heapq
 import  sortedcontainers
-# import bisect
-from atcoder.segtree import SegTree
+import random
+import bisect
+# from atcoder.segtree import SegTree
 # from atcoder.dsu import DSU
 # import random
 # import sympy
@@ -102,22 +103,24 @@ class F:
     @staticmethod
     def compose(f, g): return lambda x:f(g(x))
     @staticmethod
-    def fold_left(f, xs, x0):
-        acc = x0
-        for x in xs:
-            acc = f(acc, x)
+    def fold_left(f, xs, acc0):
+        acc = acc0
+        for x in xs: acc = f(acc, x)
+        return acc
+    @staticmethod
+    def fold_left2(f, xs, y2, acc0):
+        acc = acc0
+        for x,y in zip(xs, y2): acc = f(acc, x, y)
         return acc
     @staticmethod
     def any(xs, f=bool):
         for x in xs:
-            if f(x):
-                return True
+            if f(x): return True
         return False
     @staticmethod
     def all(xs, f=bool):
         for x in xs:
-            if not f(x):
-                return False
+            if not f(x):return False
         return True
     @staticmethod
     def identity(x): return x
@@ -173,6 +176,10 @@ class Vec2:
     @staticmethod
     def neg(v): return tuple(map(lambda x:-x, v))
     @staticmethod
+    def cross(v1, v2):
+        (x1, y1) = v1
+        (x2, y2) = v2
+        return (x1*y2 - x2*y1)
     def sub(v1, v2): return tuple(map(lambda x,y:x-y, v1, v2))
     @staticmethod
     def mid(v1, v2): return tuple(map(lambda x,y:(x+y)/2, v1, v2))
@@ -247,6 +254,7 @@ class Grid:
     @staticmethod
     def grid_hw(h, w, v): return [[v]*w for _ in range(h)]
 class Util:
+    @staticmethod
     def run_length_encode(xs):
         res = []
         if len(xs) == 0: return res
@@ -257,14 +265,49 @@ class Util:
                 pre, cnt = x, 1
             else: cnt += 1
         return res + [(pre, cnt)]
+    @staticmethod
+    def prime_factorization(n):
+        x,cnt = n, defaultdict(int)
+        for i in range(2, math.floor(math.sqrt(n)) + 1):
+            if x % i != 0: continue
+            c = 0
+            while(x % i == 0): c,x = c + 1, x // i
+            cnt[i] += c
+            if x == 1: return cnt
+        cnt[x] += 1
+        return cnt
+    @staticmethod
+    def get_sieve(n):
+        primes = [True] * (n + 1)
+        primes[0] = False
+        if n >= 1:primes[1] = False
+        limit = int(n**0.5)
+        for p in range(2, limit + 1):
+            if primes[p]: 
+                for np in range(p * p, n + 1, p): primes[np] = False
+        return primes
+    @staticmethod
+    def primerange_gen(l, r):
+        if l >= r or r <= 2: return
+        sieve = Util.get_sieve(r - 1)
+        for p in range(max(2,l), r): 
+            if sieve[p]: yield p
+    @staticmethod
+    def split_step_k(xs, K, v=None):
+        n = (K*math.ceil(len(xs)/K))
+        ref = [v]*n
+        for i in range(len(xs)): ref[i] = xs[i]
+        return [[ref[offset+i*K] for i in range(n//K)] for offset in range(K)]
+    
 #util
 def ALPHAS(small=True): return "".join([chr(i + ord("a")*small + ord("A")*(not small)) for i in range(26)])
-def SIGN(x): return 1 if x >= 0 else -1
+def SIGN(x): return 1 if x > 0 else -1
 # 標準入力
 def GET_N(): return int(input().rstrip())
 def GET_S(): return input().rstrip()
 def GET_ARR(idx=False): return F.maplist(F.compose(F.dec, int) if idx else F.LAMBDA(int), input().split())
 def GET_ARRS(length, idx=False):
+    if length == 0: return []
     res = None
     for _ in range(length):
         lst = input().split()
@@ -272,6 +315,7 @@ def GET_ARRS(length, idx=False):
         for i, v in F.compose(enumerate, F.map_curry(F.compose(F.dec, int) if idx else F.LAMBDA(int)))(lst): res[i].append(v)
     return F.hd(res) if len(res) <= 1 else res
 def GET_ARR_TUP(length, idx=False):
+    if length == 0: return []
     res = []
     for _ in range(length):
         t = F.compose(tuple, F.map_curry(F.compose(F.dec, int) if idx else F.LAMBDA(int)))(input().split())
@@ -280,6 +324,21 @@ def GET_ARR_TUP(length, idx=False):
 # to_string
 def ARR_TO_S(xs, f=str, sep=" "): return sep.join(map(f, xs))
 def ARRS_TO_S(xss, f=str): return "\n".join(map(lambda xs: ARR_TO_S(xs, f), xss))
+def BOOL_TO_S(flg): return "Yes" if flg else "No"
+
+class Heapq:
+    class Item:
+        __slots__ = ("val", "greater")
+        def __init__(self, val, greater): self.val, self.greater = val, greater
+        def __lt__(self, other): return self.val > other.val if self.greater else self.val < other.val
+        def __repr__(self): return str(self.val)
+    def __init__(self, greater=False): self.xs, self.greater = [], greater
+    def push(self, x): heapq.heappush(self.xs, self.Item(x, self.greater))
+    def pop(self): return heapq.heappop(self.xs).val
+    def __len__(self): return len(self.xs)
+    def __bool__(self): return bool(self.xs)
+    def top(self): return self.xs[0].val
+    def __repr__(self): return str(self.xs)
 
 #-------------------------------------------------------------------------------------------------
 # main
@@ -287,15 +346,11 @@ def ARRS_TO_S(xss, f=str): return "\n".join(map(lambda xs: ARR_TO_S(xs, f), xss)
 
 def main():
     N = GET_N()
-    P = GET_ARR()
+    S = GET_S()
 
-    print("Yes")
-
-
+    
 
 
-
-        
 
 
 
