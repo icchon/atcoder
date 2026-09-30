@@ -1,14 +1,14 @@
 import math
 from collections import defaultdict
 import sys
-# from collections import Counter
+from collections import Counter
 from collections import deque
 import copy 
-# import itertools
+import itertools
 import heapq
-import  sortedcontainers
-import random
-import bisect
+# import  sortedcontainers
+# import random
+# import bisect
 # from atcoder.segtree import SegTree
 # from atcoder.dsu import DSU
 # import random
@@ -221,6 +221,19 @@ class Graph:
             if uni.same(v1, v2): return True
             uni.union(v1, v2)
         return False
+class Heapq:
+    class Item:
+        __slots__ = ("val", "greater")
+        def __init__(self, val, greater): self.val, self.greater = val, greater
+        def __lt__(self, other): return self.val > other.val if self.greater else self.val < other.val
+        def __repr__(self): return str(self.val)
+    def __init__(self, greater=False): self.xs, self.greater = [], greater
+    def push(self, x): heapq.heappush(self.xs, self.Item(x, self.greater))
+    def pop(self): return heapq.heappop(self.xs).val
+    def __len__(self): return len(self.xs)
+    def __bool__(self): return bool(self.xs)
+    def top(self): return self.xs[0].val
+    def __repr__(self): return str(self.xs)
 class Grid:
     @staticmethod
     def transform(grid, h, w, f):
@@ -243,9 +256,9 @@ class Grid:
     def symmetric_x(grid): return Grid.transform(grid, len(grid), len(F.hd(grid)), lambda i,j:(len(grid) - i - 1, j))
     @staticmethod
     def print(arrs):
-        print("-"*len(F.hd(arrs))*2)
+        # print("-"*len(F.hd(arrs))*2)
         for arr in arrs: print(*arr)
-        print("-"*len(F.hd(arrs))*2)
+        # print("-"*len(F.hd(arrs))*2)
     @staticmethod
     def is_inner(hw, xy):
         h,w = hw
@@ -253,6 +266,19 @@ class Grid:
         return (0 <= x < h) and (0 <= y < w)
     @staticmethod
     def grid_hw(h, w, v): return [[v]*w for _ in range(h)]
+    @staticmethod
+    def slice(grid, upleft, bottomright):
+        sx, sy = upleft
+        tx, ty = bottomright
+        return [grid[i][sy:ty+1] for i in range(sx, tx+1)]
+    @staticmethod
+    def equal(g1, g2):
+        h1,w1, h2,w2 = len(g1), len(F.hd(g1)), len(g2), len(F.hd(g2))
+        if not ((h1 == h2) and (w1 == w2)): return False
+        for i in range(h1):
+            for j in range(w1): 
+                if g1[i][j] != g2[i][j]: return False
+        return True
 class Util:
     @staticmethod
     def run_length_encode(xs):
@@ -298,15 +324,24 @@ class Util:
         ref = [v]*n
         for i in range(len(xs)): ref[i] = xs[i]
         return [[ref[offset+i*K] for i in range(n//K)] for offset in range(K)]
-    
+    @staticmethod
+    def is_overlap(lr1, lr2):
+        l1,r1 = lr1
+        l2,r2 = lr2
+        return max(l1,l2) <= min(r1, r2)
+    @staticmethod
+    def floor(a, b): return a//b
+    @staticmethod
+    def ceil(a, b): return -(-a//b)
+
 #util
 def ALPHAS(small=True): return "".join([chr(i + ord("a")*small + ord("A")*(not small)) for i in range(26)])
 def SIGN(x): return 1 if x > 0 else -1
 # 標準入力
-def GET_N(): return int(input().rstrip())
-def GET_S(): return input().rstrip()
-def GET_ARR(idx=False): return F.maplist(F.compose(F.dec, int) if idx else F.LAMBDA(int), input().split())
-def GET_ARRS(length, idx=False):
+def GN(): return int(input().rstrip())
+def GS(): return input().rstrip()
+def XS(idx=False): return F.maplist(F.compose(F.dec, int) if idx else F.LAMBDA(int), input().split())
+def XSS(length, idx=False):
     if length == 0: return []
     res = None
     for _ in range(length):
@@ -314,7 +349,7 @@ def GET_ARRS(length, idx=False):
         if res is None: res = [[] for _ in range(len(lst))] 
         for i, v in F.compose(enumerate, F.map_curry(F.compose(F.dec, int) if idx else F.LAMBDA(int)))(lst): res[i].append(v)
     return F.hd(res) if len(res) <= 1 else res
-def GET_ARR_TUP(length, idx=False):
+def TUPS(length, idx=False):
     if length == 0: return []
     res = []
     for _ in range(length):
@@ -322,37 +357,38 @@ def GET_ARR_TUP(length, idx=False):
         res.append(F.hd(t) if len(t) <= 1 else t)
     return res
 # to_string
-def ARR_TO_S(xs, f=str, sep=" "): return sep.join(map(f, xs))
-def ARRS_TO_S(xss, f=str): return "\n".join(map(lambda xs: ARR_TO_S(xs, f), xss))
-def BOOL_TO_S(flg): return "Yes" if flg else "No"
-
-class Heapq:
-    class Item:
-        __slots__ = ("val", "greater")
-        def __init__(self, val, greater): self.val, self.greater = val, greater
-        def __lt__(self, other): return self.val > other.val if self.greater else self.val < other.val
-        def __repr__(self): return str(self.val)
-    def __init__(self, greater=False): self.xs, self.greater = [], greater
-    def push(self, x): heapq.heappush(self.xs, self.Item(x, self.greater))
-    def pop(self): return heapq.heappop(self.xs).val
-    def __len__(self): return len(self.xs)
-    def __bool__(self): return bool(self.xs)
-    def top(self): return self.xs[0].val
-    def __repr__(self): return str(self.xs)
+def TO_S(s, sep=" "):
+    def ARR_TO_S(xs, f=str, sep=" "): return sep.join(map(f, xs))
+    def ARRS_TO_S(xss, f=str, sep=" "): return "\n".join(map(lambda xs: ARR_TO_S(xs, f, sep), xss))
+    def BOOL_TO_S(flg): return "Yes" if flg else "No"
+    if isinstance(s, bool): return BOOL_TO_S(s)
+    if isinstance(s, (list, tuple)):
+        if len(s) == 0 or (not isinstance(s[0], (list, tuple))): return ARR_TO_S(s, sep=sep)
+        else: return ARRS_TO_S(s, sep=sep)
+    return f"{s}"
+def PUT(ans, sep=" "): return print(TO_S(ans, sep))
 
 #-------------------------------------------------------------------------------------------------
 # main
+# nHr = n+r-1Cr
+
+def solve():
+    H, W = XS()
+    N = GN()
+    A = XS()
+    t = []
+    for idx,a in enumerate(A):
+        idx = idx + 1
+        t += [idx]*a
+    # print(t)
+    ans = [t[(i*W):((i+1)*W)] if i % 2 == 0 else list(reversed(t[(i*W):((i+1)*W)])) for i in range(H)]
+    # Grid.print(ans)
+    PUT(ans)
 
 
 def main():
-    N = GET_N()
-    S = GET_S()
-
-    
-
-
-
-
-
+    T = 1
+    # T = GN()
+    for _ in range(T): solve()
 if __name__ == "__main__":
     main()
