@@ -9,7 +9,7 @@ import os
 # import copy 
 # import itertools
 import bisect
-# import  sortedcontainers
+import  sortedcontainers
 # from atcoder.segtree import SegTree
 # from atcoder.dsu import DSU
 
@@ -818,26 +818,27 @@ class LazySegTree:
 def ALPHAS(small=True): return "".join([chr(i + ord("a")*small + ord("A")*(not small)) for i in range(26)])
 def SIGN(x): return 1 if x > 0 else -1
 # 標準入力
-def DEFAULT_FMAPI(i, x):
+def IMPLICIT_CONVERT(x):
     t = x[1:] if x[0] in "+-" else x
     if t.isdecimal() and (t == "0" or t[0] != "0"): return int(x)
     return x
+def DEFAULT_FMAPI(i,x):
+    return IMPLICIT_CONVERT(x)
 def G0(): return DEFAULT_FMAPI(None, input().rstrip())
 def G1(f=DEFAULT_FMAPI): return F.mapi(f, input().split())
 def G2(length, f=DEFAULT_FMAPI, use_tuple=True, vert=False):
-    """
-    f: f(i,x), use_tuple: tuple or list, vert: 縦方向で受け取る
-    """
     if length == 0: return []
-    ss = [input().split() for _ in range(length)]
-    size = max(map(lambda s:len(s), ss))
-    def pack(xs): return tuple(xs+([None]*(size-len(xs))))
-    xss = [pack(list(F.mapi(f, s))) for s in ss]
-    if not use_tuple: return list(map(list, xss))
-    if vert: return [[xss[i][j] for i in range(length)] for j in range(size)]
-    return xss
-def G2_GRID(length): 
-    """文字のGRID専用"""
+    xss = [list(F.mapi(f, input().split())) for _ in range(length)]
+    if vert:
+        size = max(map(len, xss))
+        cols = [[row[j] for row in xss if j < len(row)] for j in range(size)]
+        if size == 1: return cols[0]        
+        pack = tuple if use_tuple else list
+        return [pack(c) for c in cols]
+    pack = tuple if use_tuple else list
+    return [xs[0] if len(xs) == 1 else pack(xs) for xs in xss]
+def G_GRID(length): 
+    """文字GRID専用"""
     return [list(input().rstrip()) for _ in range(length)]
 # to_string
 def TO_S(s, sep=" "):
@@ -851,20 +852,56 @@ def TO_S(s, sep=" "):
     return f"{s}"
 def PUT(ans, sep=" "): return print(TO_S(ans, sep))
 def BINS(n): return format(n, "b")
+R_FLG = MODINT
+R_INDEX = MODINT+1
+R_VALUE = MODINT+2
+def APPLY_RULES(xs, rules):
+    h, ts = F.head_tails(xs)
+    h = IMPLICIT_CONVERT(h)
+    rule = rules[h]
+    def f(x, r):
+        v = IMPLICIT_CONVERT(x)
+        return v - 1 if r == R_INDEX else v
+    return (h, tuple(f(x, r) for x, r in zip(ts, rule)))
+def G_QUERY(length, rules): return [APPLY_RULES(input().split(),rules) for _ in range(length)]
 #-------------------------------------------------------------------------------------------------
 # main
+rules = {
+        1: (R_INDEX, R_INDEX, R_VALUE),
+        2: (R_INDEX, R_INDEX)
+    }
 
 def f_for_mapi(i,x):
     return int(x)-1
+    return int(x)
+
+
 
 def main_solver():
-    N,M = G0()
-    A = G1()
-    T = G2(N)
+    N = G0()
+    A = G2(N)
+
+    ic(A)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def main():
     T = 1
     # T = GN()
     for _ in range(T): main_solver()
 if __name__ == "__main__": main()
-
