@@ -9,7 +9,7 @@ from collections import deque
 import random
 import os
 # import copy 
-# import itertools
+import itertools
 import bisect
 import  sortedcontainers
 # from atcoder.segtree import SegTree
@@ -304,13 +304,14 @@ class Vec2:
         (x1, y1) = v1
         (x2, y2) = v2
         return (x1*y2 - x2*y1)
+    @staticmethod
     def sub(v1, v2): return tuple(map(lambda x,y:x-y, v1, v2))
     @staticmethod
     def mid(v1, v2): return tuple(map(lambda x,y:(x+y)/2, v1, v2))
     @staticmethod
     def mul(s, v): return tuple(map(lambda x:s*x, v))
     @staticmethod
-    def dot(v1, v2): return sum(map((lambda x,y:x*y, v1, v2)))
+    def dot(v1, v2): return sum(map(lambda x,y:x*y, v1, v2))
     @staticmethod
     def norm2(v): return Vec2.dot(v, v)
     @staticmethod
@@ -440,20 +441,24 @@ class Grid:
         return res
     @staticmethod
     def transpose(grid):
-        h,w = len(grid), len(F.hd(grid))
+        xs = F.hd(grid)
+        if xs is None: return None
+        h,w = len(grid), len(xs)
         assert h == w
         return Grid.transform(grid, h, w, lambda i,j:(j,i))
     @staticmethod
-    def rotate90(grid): return Grid.transform(grid, len(F.hd(grid)), len(grid), lambda i,j:(j, len(F.hd(grid)) - i - 1))
+    def rotate90(grid): return Grid.transform(grid, len(grid[0]), len(grid), lambda i,j:(j, len(grid[0]) - i - 1))
     @staticmethod
-    def symmetric_y(grid): return Grid.transform(grid, len(grid), len(F.hd(grid)), lambda i,j:(i, len(F.hd(grid)) - j - 1))
+    def symmetric_y(grid): return Grid.transform(grid, len(grid), len(grid[0]), lambda i,j:(i, len(grid[0]) - j - 1))
     @staticmethod
-    def symmetric_x(grid): return Grid.transform(grid, len(grid), len(F.hd(grid)), lambda i,j:(len(grid) - i - 1, j))
+    def symmetric_x(grid): return Grid.transform(grid, len(grid), len(grid[0]), lambda i,j:(len(grid) - i - 1, j))
     @staticmethod
     def print(arrs):
-        print("-"*len(F.hd(arrs))*2)
+        xs = F.hd(arrs)
+        if xs is None: return
+        print("-"*len(xs)*2)
         for arr in arrs: print(*arr)
-        print("-"*len(F.hd(arrs))*2)
+        print("-"*len(xs)*2)
     @staticmethod
     def is_inner(hw, xy):
         h,w = hw
@@ -468,7 +473,7 @@ class Grid:
         return [grid[i][sy:ty+1] for i in range(sx, tx+1)]
     @staticmethod
     def equal(g1, g2):
-        h1,w1, h2,w2 = len(g1), len(F.hd(g1)), len(g2), len(F.hd(g2))
+        h1,w1, h2,w2 = len(g1), len(g1[0]), len(g2), len(g2[0])
         if not ((h1 == h2) and (w1 == w2)): return False
         for i in range(h1):
             for j in range(w1): 
@@ -864,13 +869,14 @@ def APPLY_RULES(xs, rules):
     def f(x, r):
         v = IMPLICIT_CONVERT(x)
         return v - 1 if r == R_INDEX else v
-    return (h, tuple(f(x, r) for x, r in zip(ts, rule)))
+    res = tuple(f(x, r) for x, r in zip(ts, rule))
+    return (h, res if len(res) >= 2 else res[0])
 def G_QUERY(length, rules): return [APPLY_RULES(input().split(),rules) for _ in range(length)]
 #-------------------------------------------------------------------------------------------------
 # main
 rules = {
-        1: (R_INDEX, R_INDEX, R_VALUE),
-        2: (R_INDEX, R_INDEX)
+        1: [R_VALUE, R_VALUE],
+        2: [R_VALUE]
     }
 
 def f_for_mapi(i,x):
@@ -878,24 +884,12 @@ def f_for_mapi(i,x):
     return int(x)
 
 
+# nCk = n! / k!(n-k)!
+#     = nPk / k!
+
 
 def main_solver():
-    N = G0()
-    A = G2(N)
-
-    ic(A)
-
-
-
-
-
-
-
-
-
-
-
-
+    N=G0()
 
 
 
